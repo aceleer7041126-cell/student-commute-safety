@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>學生通勤安全判斷工具 第三版</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e141b; color: #e6edf3; font: 15px/1.6 -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif; }
+  .container { max-width: 720px; margin: 32px auto; padding: 0 16px; }
+  header { background: #151d27; border: 1px solid #2a3644; border-radius: 14px; padding: 20px 24px; margin-bottom: 20px; }
+  h1 { margin: 0 0 8px; font-size: 20px; }
+  .subtitle { color: #8b98a5; font-size: 14px; }
+  .card { background: #151d27; border: 1px solid #2a3644; border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 14px; font-size: 16px; color: #4ea1ff; }
+  label { display: block; font-size: 14px; margin: 10px 0 4px; color: #e6edf3; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid #2a3644; border-radius: 8px; background: #0b1117; color: #e6edf3; font: inherit; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .checkbox-group { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+  .checkbox-group input { width: auto; }
+  button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: #4ea1ff; color: #0e141b; font: inherit; font-weight: 700; cursor: pointer; margin-top: 16px; }
+  button:hover { background: #6fb4ff; }
+  button.small { width: auto; padding: 8px 14px; margin-top: 8px; font-size: 14px; }
+  button.green { background: #3fbf6f; }
+  button.green:hover { background: #5fd18a; }
+  button.plain { background: #223042; color: #e6edf3; }
+  button.plain:hover { background: #2d3e55; }
+  .result { margin-top: 20px; padding: 16px; border-radius: 10px; display: none; }
+  .result.show { display: block; }
+  .result.yellow { background: #221d0e; border: 1px solid #4d4116; }
+  .result.orange { background: #3a2410; border: 1px solid #8a4a12; }
+  .result.red { background: #3a1414; border: 1px solid #8a2424; }
+  .result.green { background: #12241a; border: 1px solid #1f4d33; }
+  .level { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .level.yellow { color: #f5c542; }
+  .level.orange { color: #ff9f43; }
+  .level.red { color: #ff5d5d; }
+  .level.green { color: #3fbf6f; }
+  .advice { font-size: 15px; margin: 4px 0; }
+  .draft { background: #0b1117; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; margin-top: 12px; white-space: pre-wrap; font-size: 13px; line-height: 1.7; }
+  .note { color: #8b98a5; font-size: 13px; margin-top: 8px; }
+  .status { font-size: 13px; color: #8b98a5; margin-top: 8px; white-space: pre-wrap; }
+  .status.ok { color: #3fbf6f; }
+  .status.err { color: #ff5d5d; }
+  details { margin-top: 10px; }
+  summary { cursor: pointer; color: #8b98a5; font-size: 13px; }
+  .send-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .send-row button { flex: 1; min-width: 140px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🚲 學生通勤安全判斷工具 <span style="color:#4ea1ff;font-size:13px">第二版</span></h1>
+    <div class="subtitle">輸入地區自動抓當下氣候 ➔ 判斷今天該不該出門 ➔ 系統主動通報學校，不用學生自己想怎麼講</div>
+  </header>
+
+  <div class="card">
+    <h2>1. 你在哪裡（系統自動抓當下氣候）</h2>
+    <div class="row">
+      <div>
+        <label>所在地區（例如：南投縣、信義鄉、台北）</label>
+        <input type="text" id="region" placeholder="輸入地區名稱">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="small green" id="btnFetch" style="width:100%">自動抓當下氣候</button>
+      </div>
+    </div>
+    <div id="fetchStatus" class="status"></div>
+    <details id="manualBox">
+      <summary>抓不到或想自己改？展開手動輸入</summary>
+      <div class="row3">
+        <div><label>時雨量 (mm/h)</label><input type="number" id="rainHour" min="0" step="0.1" placeholder="例如 40"></div>
+        <div><label>3 小時累積 (mm)</label><input type="number" id="rain3h" min="0" step="0.1" placeholder="例如 100"></div>
+        <div><label>24 小時累積 (mm)</label><input type="number" id="rain24h" min="0" step="0.1" placeholder="例如 200"></div>
+      </div>
+      <div class="row">
+        <div><label>平均風速 (m/s)</label><input type="number" id="windAvg" min="0" step="0.1" placeholder="例如 10"></div>
+        <div><label>最大陣風級數</label><input type="number" id="windGust" min="0" step="1" placeholder="例如 7"></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2>2. 路況（勾選所有符合的）</h2>
+    <label class="checkbox-group"><input type="checkbox" id="roadFlood"> 道路積淹水通報</label>
+    <label class="checkbox-group"><input type="checkbox" id="roadDebris"> 土石流預警</label>
+    <label class="checkbox-group"><input type="checkbox" id="roadTree"> 路樹倒塌</label>
+    <label class="checkbox-group"><input type="checkbox" id="roadClosed"> 路段封閉</label>
+  </div>
+
+  <div class="card">
+    <h2>3. 學校公告</h2>
+    <label class="checkbox-group"><input type="radio" name="school" id="schoolRemote" value="remote"> 學校已宣布線上上課 / 停課</label>
+    <label class="checkbox-group"><input type="radio" name="school" id="schoolNone" value="none" checked> 學校尚未公布遠距上課通知</label>
+  </div>
+
+  <button id="btnCalc">判斷通勤風險</button>
+
+  <div id="result" class="result">
+    <div id="resultLevel" class="level"></div>
+    <div id="resultAdvice" class="advice"></div>
+    <div id="resultNote" class="note"></div>
+  </div>
+
+  <div id="notifyCard" class="card" style="display:none;border-color:#8a4a12">
+    <h2>📢 學校通報（系統主動，一鍵送出）</h2>
+    <div class="row">
+      <div><label>你的名字</label><input type="text" id="stuName" placeholder="例如：林小明"></div>
+      <div><label>班級 / 課程</label><input type="text" id="stuClass" placeholder="例如：資工一甲"></div>
+    </div>
+    <div class="row">
+      <div><label>導師 / 教務處 Email</label><input type="text" id="schoolMail" placeholder="teacher@school.edu.tw"></div>
+      <div><label>預計上課時間</label><input type="text" id="classTime" placeholder="例如：今天 08:10 第一節"></div>
+    </div>
+    <button class="small plain" id="btnRemember">記住我的資料（存在這台裝置，下次自動填好）</button>
+    <div id="notifyPreview" class="draft"></div>
+    <div class="send-row">
+      <button class="green" id="btnMail">📧 用 Email 送出通報</button>
+      <button class="green" id="btnLine">💬 用 LINE 送出通報</button>
+      <button class="plain" id="btnCopy">📋 複製通報內容</button>
+    </div>
+    <div id="notifyStatus" class="status"></div>
+    <div class="note">系統會把地區、自動抓到的氣候數據、風險判斷和時間全部組好，學生只要選一個管道按送出。要真正做到全自動寄信（連按都不用按），需要接一個寄信服務的帳號，之後再說。</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+
+  // ---------- 1. 地區 ➔ 自動抓當下氣候（Open-Meteo：免費、不用帳號、不用 API key） ----------
+  const WMO = { 0:'晴朗',1:'大致晴朗',2:'多雲',3:'陰天',45:'有霧',48:'霧淞',51:'毛毛雨',53:'毛毛雨',55:'毛毛雨(較大)',61:'小雨',63:'下雨',65:'大雨',66:'凍雨',67:'凍雨',71:'小雪',73:'下雪',75:'大雪',77:'雪粒',80:'陣雨',81:'陣雨',82:'強陣雨',85:'陣雪',86:'陣雪',95:'雷雨',96:'雷雨(伴冰雹)',99:'雷雨(伴冰雹)' };
+  function gustLevel(ms){ if(ms>=32.7)return 12; if(ms>=28.5)return 11; if(ms>=24.5)return 10; if(ms>=20.8)return 9; if(ms>=17.2)return 8; if(ms>=13.9)return 7; if(ms>=10.8)return 6; if(ms>=8.0)return 5; if(ms>=5.5)return 4; if(ms>=3.4)return 3; if(ms>=1.6)return 2; return 1; }
+
+  function 設狀態(字, cls) { const s = $('fetchStatus'); s.textContent = 字; s.className = 'status' + (cls ? ' ' + cls : ''); }
+
+  async function 抓氣候() {
+    const 地區 = $('region').value.trim();
+    if (!地區) { 設狀態('請先輸入地區', 'err'); return; }
+    設狀態('查詢「' + 地區 + '」的位置與當下氣候中…');
+    try {
+      // 地名用 Nominatim（中文名沒問題），氣象數據用 Open-Meteo（兩個都免費、不用帳號）
+      const geoRes = await fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(地區) + '&format=json&accept-language=zh&limit=1');
+      const geo = await geoRes.json();
+      if (!geo || !geo.length) { 設狀態('查無此地區，試試寫縣市名（例如：南投縣、宜蘭縣）', 'err'); return; }
+      const 地點 = geo[0];
+      const 氣候Res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + 地點.lat + '&longitude=' + 地點.lon +
+        '&current=temperature_2m,precipitation,weather_code,wind_speed_10m,wind_gusts_10m' +
+        '&hourly=precipitation&past_hours=24&forecast_hours=1&wind_speed_unit=ms&timezone=auto');
+      const 氣候 = await 氣候Res.json();
+      if (氣候.error) { 設狀態('氣候服務回應錯誤：' + (氣候.reason || '未知') + '。可以展開手動輸入自己填天氣數字。', 'err'); return; }
+      const 現在 = 氣候.current || {};
+      const 每時 = (氣候.hourly && 氣候.hourly.precipitation) || [];
+      const 加總 = a => a.reduce((x, y) => x + (y || 0), 0);
+      const rainHour = +(現在.precipitation || 0).toFixed(1);
+      const rain3h = +加總(每時.slice(-3)).toFixed(1);
+      const rain24h = +加總(每時.slice(0, 24)).toFixed(1);
+      const windAvg = +(現在.wind_speed_10m || 0).toFixed(1);
+      const gustM = +(現在.wind_gusts_10m || 0).toFixed(1);
+      const 天氣 = WMO[現在.weather_code] || '—';
+      $('rainHour').value = rainHour; $('rain3h').value = rain3h; $('rain24h').value = rain24h;
+      $('windAvg').value = windAvg; $('windGust').value = gustLevel(gustM);
+      $('manualBox').open = false;
+      const 短名 = String(地點.display_name || 地區).split('，')[0].split(',')[0];
+      設狀態('✓ 已抓到「' + 短名 + '」當下氣候：' + 天氣 + '，氣溫 ' + 現在.temperature_2m + '°C，時雨量 ' + rainHour +
+        'mm，3 小時 ' + rain3h + 'mm，24 小時 ' + rain24h + 'mm，風速 ' + windAvg + ' m/s，陣風約 ' + gustLevel(gustM) + ' 級。\n已自動填入，直接按「判斷通勤風險」。', 'ok');
+    } catch (e) {
+      設狀態('抓不到（沒有網路，或服務暫時連不上）。可以展開手動輸入，自己填天氣數字，功能不受影響。', 'err');
+    }
+  }
+  $('btnFetch').onclick = 抓氣候;
+  $('region').addEventListener('keydown', e => { if (e.key === 'Enter') 抓氣候(); });
+
+  // ---------- 2. 判斷風險（邏輯與第一版相同，黃/橘/紅 + 模式 A/B/C） ----------
+  $('btnCalc').onclick = function() {
+    const rainHour = parseFloat($('rainHour').value) || 0;
+    const rain3h = parseFloat($('rain3h').value) || 0;
+    const rain24h = parseFloat($('rain24h').value) || 0;
+    const windGust = parseFloat($('windGust').value) || 0;
+    const roadFlood = $('roadFlood').checked;
+    const roadDebris = $('roadDebris').checked;
+    const roadTree = $('roadTree').checked;
+    const roadClosed = $('roadClosed').checked;
+    const schoolRemote = $('schoolRemote').checked;
+
+    let level = 'green';
+    let reasons = [];
+    if (rain24h > 350 || roadDebris || roadTree || roadClosed) {
+      level = 'red';
+      if (rain24h > 350) reasons.push('24 小時累積雨量大於 350mm（超級大豪雨）');
+      if (roadDebris) reasons.push('發生土石流預警');
+      if (roadTree) reasons.push('路樹倒塌');
+      if (roadClosed) reasons.push('道路中斷封閉');
+    } else if (rain24h > 200 || rain3h > 100 || windGust >= 7) {
+      level = 'orange';
+      if (rain24h > 200) reasons.push('24 小時累積雨量大於 200mm（豪雨/大豪雨）');
+      if (rain3h > 100) reasons.push('3 小時累積雨量大於 100mm');
+      if (windGust >= 7) reasons.push('陣風達 ' + windGust + ' 級');
+    } else if (rainHour > 40 || rain24h > 80) {
+      level = 'yellow';
+      if (rainHour > 40) reasons.push('1 小時雨量大於 40mm（大雨特報）');
+      if (rain24h > 80) reasons.push('24 小時累積雨量大於 80mm');
+    }
+
+    let advice = '', note = '';
+    if (schoolRemote) {
+      advice = '【模式 A】學校已宣布遠距 ➔ 啟動遠距簽到與線上上課準備，今天不用出門。';
+      note = '系統可幫你通報學校你會配合遠距，填好下面的通報資料即可。';
+    } else if (level === 'red') {
+      advice = '【模式 B】風險極度危險，學校未宣布遠距 ➔ 系統主動向學校通報：今天無法安全到校，申請遠距或請假。';
+      note = '通報由系統組好送出，你不用自己跟學校解釋。出發前仍請看一眼窗外實際狀況。';
+    } else if (level === 'orange') {
+      advice = '【模式 B/C】高度風險 ➔ 系統發出警示，請做雙重確認：看窗外、查教務處公告，再決定要不要通報學校。';
+      note = '如果決定不出門，直接用下面的學校通報，一鍵送出。';
+    } else if (level === 'yellow') {
+      advice = '【模式 C+】黃色預警 ➔ 可以出門，系統持續監控，狀況變差會再警示。';
+      note = '建議帶雨具，隨時留意氣象更新。';
+    } else {
+      advice = '【模式 C】評估狀況許可 ➔ 照常出門通勤。';
+      note = '天氣穩定，仍建議隨時留意氣象更新。';
+    }
+
+    const result = $('result');
+    result.className = 'result show ' + level;
+    const 名 = { green: '綠色（正常）', yellow: '黃色警戒（預警）', orange: '橘色警戒（高度風險）', red: '紅色警戒（極度危險）' }[level];
+    $('resultLevel').textContent = 名 + (reasons.length ? ' ・' + reasons.join('、') : '');
+    $('resultAdvice').textContent = advice;
+    $('resultNote').textContent = note;
+    準備通報(level, reasons, rainHour, rain3h, rain24h, windGust);
+  };
+
+  // ---------- 3. 學校通報（系統主動組好，一鍵送出） ----------
+  function 帶入資料() {
+    $('stuName').value = localStorage.getItem('通勤_名字') || '';
+    $('stuClass').value = localStorage.getItem('通勤_班級') || '';
+    $('schoolMail').value = localStorage.getItem('通勤_學校信箱') || '';
+    $('classTime').value = localStorage.getItem('通勤_上課時間') || '';
+  }
+  帶入資料();
+
+  let 通報內容 = '', 通報主旨 = '';
+
+  function 準備通報(level, reasons, rainHour, rain3h, rain24h, windGust) {
+    const 卡 = $('notifyCard');
+    if (level !== 'orange' && level !== 'red') { 卡.style.display = 'none'; return; }
+    卡.style.display = 'block';
+    const 級 = level === 'red' ? '紅色（極度危險）' : '橘色（高度風險）';
+    const 時間 = new Date().toLocaleString('zh-TW', { hour12: false });
+    const 地區 = $('region').value.trim() || '（未填地區）';
+    const 原因 = reasons.length ? reasons.join('；') : '當地氣候與路況風險偏高';
+    通報主旨 = '【通勤安全通報】' + ($('stuName').value || '學生') + ' 今日建議遠距/請假（' + 級 + '）';
+    通報內容 = '學校老師您好：\n\n' +
+      '這是「學生通勤安全判斷工具」的自動通報。\n' +
+      '學生：' + ($('stuName').value || '（未填）') + '（' + ($('stuClass').value || '（未填班級）') + '）\n' +
+      '上課時間：' + ($('classTime').value || '（未填）') + '\n' +
+      '所在地區：' + 地區 + '\n\n' +
+      '系統判斷：通勤風險 ' + 級 + '。\n原因：' + 原因 + '。\n' +
+      '自動抓到的當地氣候：時雨量 ' + rainHour + 'mm，3 小時累積 ' + rain3h + 'mm，24 小時累積 ' + rain24h + 'mm，陣風約 ' + windGust + ' 級。\n\n' +
+      '處理方式：學生今天改遠距上課或依規定請假，不冒險騎車上山，課程內容會自行補上。\n' +
+      '回報時間：' + 時間 + '\n\n' +
+      '（此通報由工具自動產生，數據來源：Open-Meteo 即時氣象）';
+    $('notifyPreview').textContent = 通報主旨 + '\n\n' + 通報內容;
+    $('notifyStatus').textContent = '';
+  }
+
+  $('btnRemember').onclick = function() {
+    localStorage.setItem('通勤_名字', $('stuName').value.trim());
+    localStorage.setItem('通勤_班級', $('stuClass').value.trim());
+    localStorage.setItem('通勤_學校信箱', $('schoolMail').value.trim());
+    localStorage.setItem('通勤_上課時間', $('classTime').value.trim());
+    $('notifyStatus').textContent = '已記住，下次打開會自動填好。';
+  };
+
+  $('btnMail').onclick = function() {
+    const 收件 = $('schoolMail').value.trim();
+    if (!收件) { $('notifyStatus').textContent = '請先填導師/教務處的 Email。'; return; }
+    window.location.href = 'mailto:' + 收件 + '?subject=' + encodeURIComponent(通報主旨) + '&body=' + encodeURIComponent(通報內容);
+    $('notifyStatus').textContent = '已開啟你的寄信軟體並組好內容，按傳送就完成通報。';
+  };
+
+  $('btnLine').onclick = function() {
+    window.open('https://line.me/R/msg/text/?' + encodeURIComponent(通報主旨 + '\n\n' + 通報內容), '_blank');
+    $('notifyStatus').textContent = '已開啟 LINE，選要傳的班級群或老師，按傳送就完成通報。';
+  };
+
+  $('btnCopy').onclick = function() {
+    navigator.clipboard.writeText(通報主旨 + '\n\n' + 通報內容).then(() => {
+      $('notifyStatus').textContent = '已複製，貼到學校的聯絡管道即可。';
+    }, () => { $('notifyStatus').textContent = '複製失敗，請直接全選文字複製。'; });
+  };
+})();
+</script>
+</body>
+</html>
